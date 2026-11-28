@@ -102,6 +102,43 @@ describe('voiceReceive', function () {
     });
   });
 
+  it('keeps a shared opus source until the last decoder closes', function (done) {
+    const opus = new PassThrough();
+    let released = 0;
+    const destroy = opus.destroy.bind(opus);
+    opus.destroy = (...args) => {
+      released += 1;
+      return destroy(...args);
+    };
+    class Decoder extends PassThrough {}
+    const connection = {
+      receiver: {
+        subscribe () { return opus; }
+      }
+    };
+    const voice = { EndBehaviorType: { AfterSilence: 'silence' } };
+    const prism = { opus: { Decoder } };
+    const first = subscribeVoiceReceive(connection, 'u1', { voice, prism });
+    const second = subscribeVoiceReceive(connection, 'u1', { voice, prism });
+    first.destroy();
+    setImmediate(() => {
+      try {
+        assert.strictEqual(released, 0);
+        second.destroy();
+        setImmediate(() => {
+          try {
+            assert.strictEqual(released, 1);
+            done();
+          } catch (error) {
+            done(error);
+          }
+        });
+      } catch (error) {
+        done(error);
+      }
+    });
+  });
+
   it('forwards an opus error to the decoder and releases the source', function (done) {
     const opus = new PassThrough();
     let released = false;

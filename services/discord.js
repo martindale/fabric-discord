@@ -553,6 +553,16 @@ class Discord extends Service {
     // Standalone Commands — optional; disable when Fabric claim coordination owns replies.
     if (this.settings.autoCommands === false) return;
 
+    // Guild text is empty unless MessageContent is enabled. The default intent
+    // list stays non-privileged, so these commands run in DMs and only in
+    // guilds when that intent was asked for.
+    const intents = Array.isArray(this.settings.intents) ? this.settings.intents : [];
+    const channelType = message.channel && message.channel.type;
+    const guildMessage = message.guildId != null
+      || channelType === ChannelType.GuildText
+      || channelType === ChannelType.GuildAnnouncement;
+    if (guildMessage && !intents.includes(GatewayIntentBits.MessageContent)) return;
+
     if (message.content === '!ping') {
       return message.channel.send(`Pong!  Received your ping at ${now}.`);
     }

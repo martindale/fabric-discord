@@ -48,7 +48,7 @@
   },
   "dependencies": {
     "@discordjs/voice": "=0.19.2",
-    "@fabric/core": "FabricLabs/fabric#feature/testnet5",
+    "@fabric/core": "FabricLabs/fabric#feature/types",
     "cross-fetch": "=4.1.0",
     "discord.js": "=14.28.1",
     "libsodium-wrappers": "=0.7.16",

@@ -275,8 +275,11 @@ describe('Discord', function () {
     });
 
     it('!sync awaits sync and replies instead of returning a bare Promise', async function () {
-      const { ChannelType } = require('discord.js');
-      const discord = new Discord({ autoCommands: true });
+      const { ChannelType, GatewayIntentBits } = require('discord.js');
+      const discord = new Discord({
+        autoCommands: true,
+        intents: Discord.DEFAULT_INTENTS.concat([GatewayIntentBits.MessageContent])
+      });
       let synced = 0;
       const replies = [];
       discord.sync = async function () { synced += 1; return this; };
@@ -307,6 +310,30 @@ describe('Discord', function () {
         createdTimestamp: 100
       });
       assert.strictEqual(synced, 1, 'second !sync inside the cooldown is refused');
+
+      const quiet = new Discord({ autoCommands: true });
+      let quietSynced = 0;
+      const quietReplies = [];
+      quiet.sync = async function () { quietSynced += 1; return this; };
+      await quiet._handleClientMessage({
+        author: { bot: false, id: 'u1', username: 'pilot' },
+        channel: {
+          id: 'c1',
+          type: ChannelType.GuildText,
+          name: 'general',
+          send: async (msg) => { quietReplies.push(msg); return msg; }
+        },
+        id: 'm-sync-quiet',
+        content: '!sync',
+        createdTimestamp: 101
+      });
+      assert.strictEqual(quietSynced, 0, 'guild text commands wait for the MessageContent intent');
+      assert.strictEqual(quietReplies.length, 0);
+      quiet._clearCatalogCommitTimer();
+      if (quiet.client && typeof quiet.client.destroy === 'function') {
+        await quiet.client.destroy();
+      }
+
       discord._clearCatalogCommitTimer();
       if (discord.client && typeof discord.client.destroy === 'function') {
         await discord.client.destroy();

@@ -11,6 +11,9 @@ const { createRequire } = require('module');
 const SAMPLE_RATE = 48000;
 const CHANNELS = 2;
 
+// One Opus subscription can feed several decoders. Destroy it with the last one.
+const sourceDecoders = new WeakMap();
+
 function fail (status, message) {
   const error = new Error(message);
   error.status = status;
@@ -93,10 +96,20 @@ function subscribeVoiceReceive (connection, userId, deps = {}) {
     end: { behavior: voice.EndBehaviorType.AfterSilence, duration: silenceMs }
   });
   const decoder = new prism.opus.Decoder({ frameSize: 960, channels: CHANNELS, rate: SAMPLE_RATE });
+  let decoders = sourceDecoders.get(opus);
+  if (!decoders) {
+    decoders = new Set();
+    sourceDecoders.set(opus, decoders);
+  }
+  decoders.add(decoder);
   opus.on('error', (error) => {
     if (!decoder.destroyed) decoder.destroy(error);
   });
   const release = () => {
+    const open = sourceDecoders.get(opus);
+    if (open) open.delete(decoder);
+    if (open && open.size > 0) return;
+    sourceDecoders.delete(opus);
     if (typeof opus.destroy === 'function' && !opus.destroyed) opus.destroy();
   };
   decoder.on('close', release);
